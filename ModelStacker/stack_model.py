@@ -1,5 +1,8 @@
 import numpy as np
 import pandas as pd
+import copy
+# http://blog.kaggle.com/2016/12/27/a-kagglers-guide-to-model-stacking-in-practice/
+# https://www.kdnuggets.com/2017/02/stacking-models-imropved-predictions.html
 class ModelStacker:
     def __init__(self):
         self.base_models = {}
@@ -16,7 +19,7 @@ class ModelStacker:
         temp_idx = len(self.base_models)
         self.base_models['model_' + str(temp_idx)] = model
 
-    def fit(self, X, Y, shuffle=True, seed=0, folds=5, test=0.3):
+    def fit(self, X, Y, shuffle=True, seed=0, folds=5):
         """
         X: pandas dataframe or numpy matrix
             Independent variables to be trained on
@@ -51,8 +54,6 @@ class ModelStacker:
             raise ValueError("folds should be an integer")
         if folds < 2:
             raise ValueError("folds should be 2 or more")
-        if not 0<=test<1:
-            raise ValueError("test should be a value in [0, 1)")
         if shuffle:
             combined = np.hstack((X, Y))
             np.random.seed(seed)
@@ -60,16 +61,30 @@ class ModelStacker:
             X = combined[:, :-1]
             Y = combined[:, -1]
             del combined
-        if test > 0:
-            test_samples = int(test * len(X))
-            X_train = X[:test_samples, :]
-            Y_train = Y[:test_samples, :]
-            X_test = X[test_samples:, :]
-            Y_test = Y[test_samples:, :]
-            del X
-            del Y
-            X = X_train.copy()
-            Y = Y_train.copy()
-            del X_train
-            del Y_train
+        # Validation splits
+        X_split = np.array(np.array_split(X, folds))
+        Y_split = np.array(np.array_split(Y, folds))
+        assert len(X_split) == len(Y_split)
+        # Stacking Starts
+        index_lst = list(range(len(X_split)))
+        all_mod_preds = []
+        for key, mod in list(self.base_models.items()):
+            mod_pred = []
+            for idx, X_chunk in enumerate(X_split):
+                temp_indices = index_lst.copy()
+                temp_indices.remove(idx)
+                temp_mod = copy.deepcopy(mod)
+                temp_mod.fit(X_split[temp_indices], Y_split[temp_indices])
+                mod_pred.extend(list(temp_mod.predict(X_chunk)))
+            all_mod_preds.append(mod_pred)
+            # Fit model to all training data
+            mod.fit(X, Y)
+            self.base_models[key] = mod
+        # Concatenating Features Generated
+        initial_col = X.shape[1]
+        for pred in all_mod_preds:
+            X = np.hstack((X, np.array(pred)))
+        then = X.shape[1] - initial_col
+        assert then == len(self.base_models)
+        return X, Y
         
