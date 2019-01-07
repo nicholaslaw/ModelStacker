@@ -20,6 +20,16 @@ class ModelStacker:
         temp_idx = len(self.base_models)
         self.base_models['model_' + str(temp_idx)] = model
 
+    def add_stacked_model(self, model):
+        """
+        model: model object, preferably sklearn
+
+        adds a model object for final prediction
+        """
+        if not hasattr(model, "fit"):
+            raise ValueError("Add method only takes in a model object which has fit method, such as models from sklearn or xgboost")
+        self.stacked_model = model
+
     def fit(self, X, Y, shuffle=True, seed=0, folds=5):
         """
         X: pandas dataframe or numpy matrix
@@ -68,7 +78,7 @@ class ModelStacker:
         X_split = np.array(np.array_split(X, folds))
         Y_split = np.array(np.array_split(Y, folds))
         assert len(X_split) == len(Y_split)
-        
+
         # Stacking Starts and Concatenating Features Generated
         index_lst = list(range(len(X_split)))
         initial_col = X.shape[1]
@@ -94,8 +104,8 @@ class ModelStacker:
         
     def predict(self, X_test):
         """
-        X: pandas dataframe, numpy matrix
-            dataset with independent variables and previously added features through stacking
+        X_test: pandas dataframe, numpy matrix
+            dataset with independent variables and previously added features through stacking to be predicted
         returns predictions by the final model of stacking
         """
         if self.stacked_model is None:
