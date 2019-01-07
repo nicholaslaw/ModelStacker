@@ -7,6 +7,7 @@ class ModelStacker:
     def __init__(self):
         self.base_models = {}
         self.stacked_model = None
+        self.fitted = False
     
     def add_base_model(self, model):
         """
@@ -34,6 +35,8 @@ class ModelStacker:
 
         returns new feature columns by stacking, number of feature columns will correspond to the number of models
         """
+        if self.stacked_model is None:
+            raise ValueError("Stacked model has not been chosen")
         if len(self.base_models) <= 1:
             raise Exception("Add more than 1 model for stacking to make sense")
         if isinstance(X, pd.DataFrame):
@@ -65,9 +68,10 @@ class ModelStacker:
         X_split = np.array(np.array_split(X, folds))
         Y_split = np.array(np.array_split(Y, folds))
         assert len(X_split) == len(Y_split)
-        # Stacking Starts
+        
+        # Stacking Starts and Concatenating Features Generated
         index_lst = list(range(len(X_split)))
-        all_mod_preds = []
+        initial_col = X.shape[1]
         for key, mod in list(self.base_models.items()):
             mod_pred = []
             for idx, X_chunk in enumerate(X_split):
@@ -76,15 +80,38 @@ class ModelStacker:
                 temp_mod = copy.deepcopy(mod)
                 temp_mod.fit(X_split[temp_indices], Y_split[temp_indices])
                 mod_pred.extend(list(temp_mod.predict(X_chunk)))
-            all_mod_preds.append(mod_pred)
-            # Fit model to all training data
-            mod.fit(X, Y)
-            self.base_models[key] = mod
-        # Concatenating Features Generated
-        initial_col = X.shape[1]
-        for pred in all_mod_preds:
-            X = np.hstack((X, np.array(pred)))
+            X = np.hstack((X, np.array(mod_pred)))
         then = X.shape[1] - initial_col
         assert then == len(self.base_models)
+
+        # Fit All Base Models to All Training Data
+        for key, mod in self.base_models.items():
+            mod.fit(X, Y)
+            self.base_models[key] = mod
+        self.stacked_model.fit(X, Y)
+        self.fitted = True
         return X, Y
         
+    def predict(self, X_test):
+        """
+        X: pandas dataframe, numpy matrix
+            dataset with independent variables and previously added features through stacking
+        returns predictions by the final model of stacking
+        """
+        if self.stacked_model is None:
+            raise ValueError("Stacked model has not been chosen")
+        if len(self.base_models) <= 1:
+            raise Exception("Add more than 1 model for stacking to make sense")
+        if isinstance(X_test, pd.DataFrame):
+            X_test = X_test.values
+        if np.isnan(np.sum(X_test)):
+            raise ValueError("X_test contains null values")
+        if not self.fitted:
+            raise Exception("Base Models and Stacked Model have not been fitted")
+        initial_col = X_test.shape[1]
+        x_test_copy = X_test.copy()
+        for mod in self.base_models.values():
+            X_test = np.hstack((X_test, mod.predict(x_test_copy)))
+        then = X_test.shape[1] - initial_col
+        assert then == len(self.base_models)
+        return self.stacked_model.predict(X_test)
