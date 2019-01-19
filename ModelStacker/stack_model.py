@@ -68,7 +68,7 @@ class ModelStacker:
         if folds < 2:
             raise ValueError("folds should be 2 or more")
         if shuffle:
-            combined = np.hstack((X, Y))
+            combined = np.hstack((X, Y.reshape(X.shape[0], 1)))
             np.random.seed(seed)
             np.random.shuffle(combined)
             X = combined[:, :-1]
