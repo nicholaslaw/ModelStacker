@@ -1,8 +1,7 @@
 import numpy as np
 import pandas as pd
 import copy
-# http://blog.kaggle.com/2016/12/27/a-kagglers-guide-to-model-stacking-in-practice/
-# https://www.kdnuggets.com/2017/02/stacking-models-imropved-predictions.html
+
 class ModelStacker:
     def __init__(self):
         self.base_models = {}
@@ -30,7 +29,7 @@ class ModelStacker:
             raise ValueError("Add method only takes in a model object which has fit method, such as models from sklearn or xgboost")
         self.stacked_model = model
 
-    def fit(self, X, Y, shuffle=True, seed=0, folds=5):
+    def fit(self, X, Y, shuffle=True, seed=0, folds=5, new_features=False):
         """
         X: pandas dataframe or numpy matrix
             Independent variables to be trained on
@@ -78,29 +77,31 @@ class ModelStacker:
         X_split = np.array(np.array_split(X, folds))
         Y_split = np.array(np.array_split(Y, folds))
         assert len(X_split) == len(Y_split)
-
         # Stacking Starts and Concatenating Features Generated
         index_lst = list(range(len(X_split)))
         initial_col = X.shape[1]
+        X_stacked = X.copy()
         for key, mod in list(self.base_models.items()):
             mod_pred = []
             for idx, X_chunk in enumerate(X_split):
                 temp_indices = index_lst.copy()
                 temp_indices.remove(idx)
                 temp_mod = copy.deepcopy(mod)
-                temp_mod.fit(X_split[temp_indices], Y_split[temp_indices])
+                tmp_xsplit = np.array([j for i in X_split[temp_indices] for j in i])
+                tmp_ysplit = np.array([j for i in Y_split[temp_indices] for j in i])
+                temp_mod.fit(tmp_xsplit, tmp_ysplit)
                 mod_pred.extend(list(temp_mod.predict(X_chunk)))
-            X = np.hstack((X, np.array(mod_pred)))
-        then = X.shape[1] - initial_col
+            X_stacked = np.hstack((X_stacked, np.array(mod_pred).reshape((-1, 1))))
+        then = X_stacked.shape[1] - initial_col
         assert then == len(self.base_models)
-
         # Fit All Base Models to All Training Data
         for key, mod in self.base_models.items():
             mod.fit(X, Y)
             self.base_models[key] = mod
-        self.stacked_model.fit(X, Y)
+        self.stacked_model.fit(X_stacked, Y)
         self.fitted = True
-        return X, Y
+        if new_features:
+            return X_stacked
         
     def predict(self, X_test):
         """
@@ -119,9 +120,9 @@ class ModelStacker:
         if not self.fitted:
             raise Exception("Base Models and Stacked Model have not been fitted")
         initial_col = X_test.shape[1]
-        x_test_copy = X_test.copy()
+        X_test_copy = X_test.copy()
         for mod in self.base_models.values():
-            X_test = np.hstack((X_test, mod.predict(x_test_copy)))
-        then = X_test.shape[1] - initial_col
+            X_test_copy = np.hstack((X_test_copy, mod.predict(X_test).reshape((-1, 1))))
+        then = X_test_copy.shape[1] - initial_col
         assert then == len(self.base_models)
-        return self.stacked_model.predict(X_test)
+        return self.stacked_model.predict(X_test_copy)
