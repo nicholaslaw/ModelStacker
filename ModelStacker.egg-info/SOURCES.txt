@@ -1,8 +1,0 @@
-README.md
-setup.py
-ModelStacker/__init__.py
-ModelStacker/stack_model.py
-ModelStacker.egg-info/PKG-INFO
-ModelStacker.egg-info/SOURCES.txt
-ModelStacker.egg-info/dependency_links.txt
-ModelStacker.egg-info/top_level.txt

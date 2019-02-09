@@ -1,4 +1,4 @@
-from ModelStacker import ModelStacker
+from MLStacker import ModelStacker
 stacker = ModelStacker()
 
 from sklearn.tree import DecisionTreeClassifier

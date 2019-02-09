@@ -12,13 +12,13 @@ Currently, ModelStacker depends on:
 
 ## Installation
 ```
-pip install -r requirements.txt
+pip install MLStacker
 ```
 
 ## Usage
 ### Initalize ModelStacker
 ```
-from ModelStacker import ModelStacker
+from MLStacker import ModelStacker
 stacker = ModelStacker()
 ```
 

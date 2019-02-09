@@ -1,5 +1,5 @@
 Metadata-Version: 1.1
-Name: ModelStacker
+Name: MLStacker
 Version: 0.0.1
 Summary: A package which supports the implementation of stacking of machine learning models
 Home-page: https://github.com/nicholaslaw/ModelStacker
