@@ -14,7 +14,7 @@ setuptools.setup(
     url="https://github.com/nicholaslaw/ModelStacker",
     packages=setuptools.find_packages(),
     install_requires=[
-        'numpy==1.14.0',
+        'numpy==1.22.0',
         'pandas==0.22.0'
     ],
     classifiers=[
